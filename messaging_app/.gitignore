@@ -1,0 +1,45 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django specific files
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+
+
+# Django static and media files
+/staticfiles/
+/media/
+
+# Local environment variables
+.env
+.env.*
+
+# Virtualenv
+venv/
+ENV/
+env/
+.venv/
+
+# VS Code and other IDE/editor settings
+.vscode/
+.idea/
+
+# macOS, Linux & Windows system files
+.DS_Store
+Thumbs.db
+
+# Pip dependency files with lockfiles
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Pytest and test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+
