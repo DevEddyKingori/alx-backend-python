@@ -1,0 +1,27 @@
+<<<<<<< HEAD
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.10"
+=======
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.10"
+>>>>>>> 63d17a02b66d463ff6ec115078bd66d1f2cf1483
