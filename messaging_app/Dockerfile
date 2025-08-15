@@ -9,7 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copying the source code
 COPY . .
-EXPOSE 8000
+
+# using -p 8000:8000 to run this container
+EXPOSE 8000 
 
 # Command to run application
 CMD ["python3", "manage.py", "runserver", "0.0.0.0:8080"]
