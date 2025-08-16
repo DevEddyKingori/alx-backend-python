@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# kubctl-0x03 - Rolling Update with Downtime Monitoring
+
+# Configuration
+DEPLOYMENT_NAME="django-app-blue"
+NAMESPACE="default"
+SERVICE_NAME="django-app-service"
+TEST_URL="http://localhost:8000"  # Update if using different port or external IP
+TEST_INTERVAL=1  # Seconds between test requests
+IMAGE_VERSION="2.0"
+
+# Function to continuously test the application
+test_application() {
+  echo -e "\nStarting continuous application testing..."
+  echo "Press Ctrl+C to stop testing"
+  
+  while true; do
+    timestamp=$(date +"%Y-%m-%d %T")
+    if response=$(curl -sS -o /dev/null -w "%{http_code}" $TEST_URL 2>&1); then
+      echo "[$timestamp] OK - HTTP $response"
+    else
+      echo "[$timestamp] ERROR - $response"
+    fi
+    sleep $TEST_INTERVAL
+  done
+}
+
+# Function to update the deployment
+update_deployment() {
+  echo "Updating deployment $DEPLOYMENT_NAME to version $IMAGE_VERSION..."
+  
+  # Update the image version
+  kubectl set image deployment/$DEPLOYMENT_NAME \
+    django-app=yourusername/django-app:v$IMAGE_VERSION \
+    -n $NAMESPACE
+  
+  # Start the rollout
+  kubectl rollout status deployment/$DEPLOYMENT_NAME \
+    -n $NAMESPACE \
+    --timeout=300s \
+    --watch
+}
+
+# Main execution
+echo "=== kubctl-0x03 - Rolling Update Monitoring ==="
+
+# Start continuous testing in background
+test_application &
+TEST_PID=$!
+
+# Give the test a moment to establish
+sleep 2
+
+# Perform the rolling update
+if ! update_deployment; then
+  echo "Error: Rolling update failed!"
+  kill $TEST_PID
+  exit 1
+fi
+
+# Stop the continuous testing
+kill $TEST_PID
+
+# Verify the update
+echo -e "\nVerifying update completion:"
+kubectl get pods -n $NAMESPACE -l app=django-app -o wide
+kubectl get deployment $DEPLOYMENT_NAME -n $NAMESPACE -o wide
+
+echo -e "\n=== Rolling Update Complete ==="
+echo "Current image version:"
+kubectl get deployment $DEPLOYMENT_NAME -n $NAMESPACE -o jsonpath='{.spec.template.spec.containers[0].image}'
+echo

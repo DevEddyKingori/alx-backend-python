@@ -1,0 +1,17 @@
+# Install Ingress Controller (minikube)
+minikube addons enable ingress
+
+# Install Ingress Controller (generic Kubernetes)
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.1/deploy/static/provider/cloud/deploy.yaml
+
+# Apply Ingress configuration
+kubectl apply -f ingress.yaml
+
+# Verify installation
+kubectl get pods -n ingress-nginx
+
+# Check Ingress status
+kubectl get ingress
+
+# Get external IP (may take a few minutes to populate)
+kubectl get svc -n ingress-nginx

@@ -1,18 +1,23 @@
-FROM python:3.10 
+# Use official Python 3.10 image
+FROM python:3.10-slim
 
-# Setting the working directory
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# Set work directory
 WORKDIR /app
 
-# Copying and instaling the dependencies
+# Install dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt 
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copying the source code
+# Copy project
 COPY . .
 
-# using -p 8000:8000 to run this container
-EXPOSE 8000 
+# Expose the port the app runs on
+EXPOSE 8000
+# Remember to use -p 8000:8000 when running this container
 
-# Command to run application
-CMD ["python3", "manage.py", "runserver", "0.0.0.0:8080"]
-
+# Command to run the application
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

@@ -2,15 +2,13 @@ import uuid
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from datetime import timezone
+from datetime import datetime, timezone
 
-
-# Custom User model extending Django's AbstractUser.
 class User(AbstractUser):
     """
+    Custom User model extending Django's AbstractUser.
     Includes all required fields while maintaining built-in auth functionality.
     """
-    # Primary key (user_id equivalent)
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -18,8 +16,6 @@ class User(AbstractUser):
         unique=True,
         verbose_name="User ID"
     )
-
-    # Required fields (AbstractUser already includes username and password)
     email = models.EmailField(
         _('email address'),
         unique=True,
@@ -39,8 +35,6 @@ class User(AbstractUser):
         blank=False,
         null=False
     )
-
-    # Optional fields
     phone_number = models.CharField(
         max_length=20,
         blank=True,
@@ -49,8 +43,8 @@ class User(AbstractUser):
     )
     profile_picture = models.ImageField(
         upload_to='profile_pics/',
-        null=True,
-        blank=True
+        blank=True,
+        null=True
     )
     online_status = models.BooleanField(
         default=False,
@@ -93,9 +87,10 @@ class User(AbstractUser):
         """Return the short name for the user (first_name only)."""
         return self.first_name
 
-
-# Model representing a conversation between users.
 class Conversation(models.Model):
+    """
+    Model representing a conversation between users.
+    """
     conversation_id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -111,18 +106,19 @@ class Conversation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_group_chat = models.BooleanField(default=False)
     name = models.CharField(max_length=100, blank=True, null=True)
-
+    
     class Meta:
         ordering = ['-updated_at']
-
+    
     def __str__(self):
         if self.is_group_chat and self.name:
             return f"Group: {self.name}"
         return f"Conversation ({self.conversation_id})"
 
-
-# Model representing a message in a conversation.
 class Message(models.Model):
+    """
+    Model representing a message in a conversation.
+    """
     message_id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -152,13 +148,13 @@ class Message(models.Model):
         related_name='read_messages',
         blank=True
     )
-
+    
     class Meta:
         ordering = ['sent_at']
-
+    
     def __str__(self):
         return f"Message {self.message_id} from {self.sender}"
-
+    
     def mark_as_read(self, user):
         """
         Mark the message as read by a specific user.

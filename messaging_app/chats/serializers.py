@@ -4,31 +4,35 @@ from .models import Conversation, Message
 
 User = get_user_model()
 
-
 class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for User model.
+    """
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'bio', 'profile_picture',
-                  'birth_date', 'online_status', 'last_seen']
+        fields = ['id', 'username', 'email', 'bio', 'profile_picture', 'birth_date', 'online_status', 'last_seen']
         extra_kwargs = {
             'profile_picture': {'required': False},
             'bio': {'required': False},
             'birth_date': {'required': False},
         }
 
-
 class MessageSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Message model.
+    """
     sender = UserSerializer(read_only=True)
     read_by = UserSerializer(many=True, read_only=True)
 
     class Meta:
         model = Message
-        fields = ['id', 'conversation', 'sender',
-                  'content', 'timestamp', 'read_by']
+        fields = ['id', 'conversation', 'sender', 'content', 'timestamp', 'read_by']
         read_only_fields = ['id', 'timestamp', 'sender', 'read_by']
 
-
 class ConversationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Conversation model.
+    """
     participants = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=User.objects.all(),
@@ -44,8 +48,7 @@ class ConversationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Conversation
-        fields = ['id', 'participants', 'created_at', 'updated_at',
-                  'is_group_chat', 'group_name', 'messages', 'last_message']
+        fields = ['id', 'participants', 'created_at', 'updated_at', 'is_group_chat', 'group_name', 'messages', 'last_message']
         read_only_fields = ['id', 'created_at', 'updated_at', 'messages']
 
     def get_last_message(self, obj):
@@ -81,7 +84,6 @@ class ConversationSerializer(serializers.ModelSerializer):
             conversation.participants.add(participant)
         return conversation
 
-
 class MessageCreateSerializer(serializers.ModelSerializer):
     content = serializers.CharField(
         max_length=2000,
@@ -98,6 +100,5 @@ class MessageCreateSerializer(serializers.ModelSerializer):
         Validate message content is not empty
         """
         if not value.strip():
-            raise serializers.ValidationError(
-                "Message content cannot be empty")
+            raise serializers.ValidationError("Message content cannot be empty")
         return value.strip()

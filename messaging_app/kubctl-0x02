@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# kubctl-0x02 - Blue-Green Deployment Script
+
+# Configuration
+BLUE_DEPLOYMENT="kubernetes/blue_deployment.yaml"
+GREEN_DEPLOYMENT="kubernetes/green_deployment.yaml"
+SERVICE_CONFIG="kubernetes/kubeservice.yaml"
+SERVICE_NAME="django-app-service"
+GREEN_LABEL="version=green"
+BLUE_LABEL="version=blue"
+NAMESPACE="default"
+
+# Function to check deployment status
+check_deployment() {
+  local deployment=$1
+  kubectl rollout status deployment/$deployment -n $NAMESPACE --timeout=120s
+  return $?
+}
+
+# Function to check pod logs
+check_logs() {
+  local label=$1
+  echo -e "\nChecking logs for pods with label $label..."
+  pods=$(kubectl get pods -n $NAMESPACE -l $label -o jsonpath='{.items[*].metadata.name}')
+  
+  for pod in $pods; do
+    echo -e "\nLogs for pod $pod:"
+    kubectl logs $pod -n $NAMESPACE --tail=20 | grep -i error
+  done
+}
+
+# Main execution
+echo "=== Starting Blue-Green Deployment ==="
+
+# Step 1: Deploy green version
+echo -e "\nDeploying green version..."
+kubectl apply -f $GREEN_DEPLOYMENT
+
+# Step 2: Wait for green deployment to be ready
+if ! check_deployment "django-app-green"; then
+  echo "Error: Green deployment failed!"
+  check_logs "$GREEN_LABEL"
+  exit 1
+fi
+
+# Step 3: Verify green version logs
+check_logs "$GREEN_LABEL"
+
+# Step 4: Switch traffic to green
+echo -e "\nSwitching traffic to green version..."
+kubectl patch service $SERVICE_NAME -n $NAMESPACE -p '{"spec":{"selector":{"version":"green"}}}'
+
+# Step 5: Verify traffic switch
+echo -e "\nVerifying service endpoints..."
+kubectl get endpoints $SERVICE_NAME -n $NAMESPACE -o wide
+
+# Step 6: (Optional) Scale down blue version
+read -p "Do you want to scale down the blue version? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  echo "Scaling down blue version..."
+  kubectl scale deployment django-app-blue --replicas=0 -n $NAMESPACE
+fi
+
+echo -e "\n=== Blue-Green Deployment Complete ==="
+echo "Current service selector:"
+kubectl get service $SERVICE_NAME -n $NAMESPACE -o jsonpath='{.spec.selector}'
+echo

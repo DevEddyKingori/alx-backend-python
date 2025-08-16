@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: mysql:8.0
@@ -16,7 +18,7 @@ services:
 
   web:
     build: .
-    command: python3 manage.py runserver 0.0.0.0:8000
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
     ports:
@@ -37,3 +39,4 @@ volumes:
 networks:
   app-network:
     driver: bridge
+#python3 manage.py runserver

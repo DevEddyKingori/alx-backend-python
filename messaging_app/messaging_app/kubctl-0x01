@@ -1,0 +1,88 @@
+#!/bin/bash
+
+# kubctl-0x01 - Kubernetes Scaling and Load Testing Script
+
+# Configuration variables
+DEPLOYMENT_NAME="django-messaging-app"
+SERVICE_NAME="django-messaging-service"
+LOAD_TEST_DURATION="30s"
+LOAD_TEST_CONNECTIONS=10
+LOAD_TEST_THREADS=2
+
+# Function to check command existence
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+# Function to scale the deployment
+scale_deployment() {
+  echo "Scaling deployment $DEPLOYMENT_NAME to 3 replicas..."
+  kubectl scale deployment $DEPLOYMENT_NAME --replicas=3
+  
+  # Wait for pods to be ready
+  echo "Waiting for pods to be ready..."
+  kubectl wait --for=condition=ready pod -l app=django-messaging --timeout=120s
+}
+
+# Function to verify scaling
+verify_scaling() {
+  echo "Verifying deployment scaling..."
+  kubectl get deployments $DEPLOYMENT_NAME
+  
+  echo -e "\nCurrent pods:"
+  kubectl get pods -l app=django-messaging -o wide
+}
+
+# Function to get service URL
+get_service_url() {
+  # For ClusterIP service, we'll use port-forwarding for testing
+  kubectl port-forward service/$SERVICE_NAME 8000:8000 > /dev/null &
+  PORT_FORWARD_PID=$!
+  sleep 3  # Wait for port-forward to establish
+  echo "http://localhost:8000"
+}
+
+# Function to perform load testing
+load_test() {
+  if ! command_exists "wrk"; then
+    echo "wrk not found. Install it first or use another load testing tool."
+    echo "On macOS: brew install wrk"
+    echo "On Ubuntu: sudo apt-get install wrk"
+    return 1
+  fi
+
+  SERVICE_URL=$(get_service_url)
+  echo -e "\nPerforming load testing on $SERVICE_URL..."
+  
+  wrk -t$LOAD_TEST_THREADS -c$LOAD_TEST_CONNECTIONS -d$LOAD_TEST_DURATION $SERVICE_URL
+  
+  # Kill the port-forward process
+  kill $PORT_FORWARD_PID
+}
+
+# Function to monitor resource usage
+monitor_resources() {
+  echo -e "\nMonitoring resource usage:"
+  echo "Cluster nodes resource usage:"
+  kubectl top nodes
+  
+  echo -e "\nPods resource usage:"
+  kubectl top pods -l app=django-messaging
+}
+
+# Main execution
+echo "=== kubctl-0x01 - Kubernetes Scaling and Load Testing ==="
+
+# Scale the deployment
+scale_deployment
+
+# Verify scaling
+verify_scaling
+
+# Perform load testing
+load_test
+
+# Monitor resource usage
+monitor_resources
+
+echo "=== Script completed ==="
