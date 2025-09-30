@@ -1,0 +1,172 @@
+name: Django CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: test_db
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    env:
+      DATABASE_URL: mysql://test_user:test_password@localhost:3306/test_db
+      DJANGO_SETTINGS_MODULE: your_project_name.settings.test
+      SECRET_KEY: test-secret-key-for-ci
+      DEBUG: 0
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y default-libmysqlclient-dev build-essential
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-django coverage flake8
+
+    - name: Run flake8 linting
+      run: |
+        # Run flake8 with strict error handling
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
+      continue-on-error: false
+
+    - name: Wait for MySQL to be ready
+      run: |
+        for i in {1..30}; do
+          if mysql -h 127.0.0.1 -P 3306 -u root -prootpassword -e "SELECT 1;" >/dev/null 2>&1; then
+            echo "MySQL is ready!"
+            break
+          fi
+          echo "Waiting for MySQL... Attempt $i"
+          sleep 2
+        done
+
+    - name: Create test database and user
+      run: |
+        mysql -h 127.0.0.1 -P 3306 -u root -prootpassword <<EOF
+        CREATE DATABASE IF NOT EXISTS test_db;
+        CREATE USER IF NOT EXISTS 'test_user'@'%' IDENTIFIED BY 'test_password';
+        GRANT ALL PRIVILEGES ON test_db.* TO 'test_user'@'%';
+        FLUSH PRIVILEGES;
+        EOF
+
+    - name: Run migrations
+      run: |
+        python manage.py makemigrations --check --dry-run
+        python manage.py migrate
+
+    - name: Run tests with pytest and coverage
+      run: |
+        python -m pytest --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml -v
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: test-results.xml
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.xml
+
+    - name: Upload HTML coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: html-coverage-report
+        path: htmlcov/
+
+    - name: Pytest Test Results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Pytest Results
+        path: test-results.xml
+        reporter: pytest-junit
+
+    - name: Code Coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  quality-checks:
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install flake8
+      run: |
+        pip install flake8
+
+    - name: Run comprehensive flake8 checks
+      run: |
+        echo "Running flake8 linting checks..."
+        flake8 . --config=setup.cfg || exit 1
+        echo "Linting passed! ✅"
+
+    - name: Check code complexity
+      run: |
+        flake8 . --max-complexity=10 --select=C --count || echo "Complexity warnings found (non-fatal)"
+
+  coverage-report:
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+
+    steps:
+    - name: Download coverage artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: coverage-report
+        path: ./coverage
+
+    - name: Display coverage summary
+      run: |
+        if [ -f ./coverage/coverage.xml ]; then
+          echo "Coverage report found!"
+          # You can add a tool to parse and display coverage summary here
+          echo "Coverage artifacts downloaded successfully"
+        else
+          echo "No coverage report found"
+          exit 1
+        fi
