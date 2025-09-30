@@ -6,3 +6,8 @@ PyJWT==2.10.1
 sqlparse==0.5.3
 typing_extensions==4.14.1
 tzdata==2025.2
+mysqlclient>=2.0,<3.0
+pytest>=7.0,<8.0
+pytest-django>=4.5,<5.0
+coverage>=6.0,<7.0
+flake8>=6.0,<7.0

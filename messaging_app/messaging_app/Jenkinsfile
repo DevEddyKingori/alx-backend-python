@@ -1,0 +1,103 @@
+pipeline {
+    agent any
+    tools {
+        python 'python3'
+    }
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds') // Store Docker Hub credentials in Jenkins
+        DOCKER_IMAGE = 'your-dockerhub-username/messaging-app' // Replace with your Docker Hub username
+        DOCKER_TAG = "${env.BUILD_ID}"
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                git(
+                    url: 'https://github.com/alx-backend-python/messaging_app.git',
+                    credentialsId: 'github-creds',
+                    branch: 'main' 
+                )
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                sh 'pip install -r requirements.txt'
+            }
+        }
+        
+        stage('Run Tests') {
+            steps {
+                sh 'pytest --junitxml=test-report.xml'
+            }
+            post {
+                always {
+                    junit 'test-report.xml'
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Create Dockerfile if it doesn't exist (optional)
+                    sh '''
+                    if [ ! -f Dockerfile ]; then
+                        cat > Dockerfile << EOF
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+EOF
+                    fi
+                    '''
+                    
+                    // Build the Docker image
+                    sh "docker build -t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} ."
+                    sh "docker tag ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} ${env.DOCKER_IMAGE}:latest"
+                }
+            }
+        }
+        
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    // Login to Docker Hub
+                    sh "echo ${env.DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${env.DOCKERHUB_CREDENTIALS_USR} --password-stdin"
+                    
+                    // Push both tagged and latest images
+                    sh "docker push ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"
+                    sh "docker push ${env.DOCKER_IMAGE}:latest"
+                    
+                    // Logout from Docker Hub
+                    sh "docker logout"
+                }
+            }
+        }
+        
+        stage('Cleanup') {
+            steps {
+                script {
+                    // Remove local Docker images to free up space  git branch  messaging_app/requirements.txt", "pip3 install
+                    sh "docker rmi ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} ${env.DOCKER_IMAGE}:latest || true"
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo "Docker image ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} built and pushed successfully!"
+        }
+        failure {
+            echo "Pipeline failed. Check the logs for details."
+        }
+    }
+}
